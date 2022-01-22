@@ -1,9 +1,9 @@
-from configparser import ConfigParser
-import os
-from pathlib import Path
 import subprocess
 import logging
 import datetime
+import os
+from pathlib import Path
+from configparser import ConfigParser
 
 
 LOG_DIR = Path(f'{Path.home()}/.pip_uall/')
@@ -31,6 +31,36 @@ def clean_logs():
     for log_file in LOG_DIR.iterdir():
         os.remove(log_file)
 
+
+def install_package(name: str, pip_command: str) -> bytes:
+    print(f'{name}...', end='\t')
+    upgrade_process = subprocess.run(
+        [pip_command, 'install', '--upgrade', name],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE
+    )
+    return upgrade_process.stderr
+
+
+def install_packages(packages: bytes, pip_command: str, excluded_packages: list[str]) -> None:
+    for package in packages.decode('utf-8').split('\n')[:-1]:
+        try:
+            name, _ = package.split('==')
+        except ValueError:
+            name, _ = package.split(" @ ")
+        
+        if name not in excluded_packages:
+            stderr = install_package(name, pip_command)
+        else:
+            continue
+        
+        if stderr != b'':
+            print(f'{COLOR_RED}failed{COLOR_RESET}')
+            logging.exception(stderr.decode('utf-8'))
+        else:
+            print(f'{COLOR_GREEN}success{COLOR_RESET}')
+
+
 def main() -> int:
     print(f'logs can be found in {LOG_FILE}\n')
     pip_commands, excluded = read_config()
@@ -39,28 +69,5 @@ def main() -> int:
             [pip_command, 'freeze'],
             stdout=subprocess.PIPE
         )
-        for package in process.stdout.decode('utf-8').split('\n')[:-1]:
-            try:
-                name, _ = package.split('==')
-                if name not in excluded:
-                    print(f'{name}...', end='\t')
-                    upgrade_process = subprocess.run(
-                        [pip_command, 'install', '--upgrade', name],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.PIPE
-                    )
-            except ValueError:
-                name, _ = package.split(" @ ")
-                if name not in excluded:
-                    print(f'{name}...', end='\t')
-                    subprocess.run(
-                        [pip_command, 'install', '.'],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.PIPE
-                    )
-            if upgrade_process.stderr != b'':
-                print(f'{COLOR_RED}failed{COLOR_RESET}')
-                logging.exception(upgrade_process.stderr.decode('utf-8'))
-            else:
-                print(f'{COLOR_GREEN}success{COLOR_RESET}')
+        install_packages(process.stdout, pip_command, excluded)
     return 0
