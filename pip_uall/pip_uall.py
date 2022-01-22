@@ -18,7 +18,6 @@ def read_config() -> tuple[list[str], list[str]]:
     parser = ConfigParser()
     tmp = Path.joinpath(Path.home(), '.pipuall.ini')
     parser.read(tmp)
-    print(tmp.exists())
     return (
         parser['pip_uall']['pip_commands'].split(','),
         parser['pip_uall']['excluded'].split(',')
@@ -48,7 +47,3 @@ def main() -> int:
                 else:
                     print(f'{COLOR_GREEN}success{COLOR_RESET}')
     return 0
-
-
-if __name__ == '__main__':
-    raise SystemExit(main())
